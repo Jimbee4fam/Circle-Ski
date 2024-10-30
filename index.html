@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkiFree Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #e0f7fa;
+            font-family: Arial, sans-serif;
+        }
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #87ceeb;
+            border: 2px solid #333;
+        }
+        #scoreboard {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div id="scoreboard">Score: 0</div>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Game variables
+        let score = 0;
+        let gameOver = false;
+        let speed = 2;
+        const skierSize = 20;
+        const obstacleSize = 30;
+        const chaserRadius = 25;
+        const obstacles = [];
+        let distanceTraveled = 0;
+        let chaserActive = false;
+
+        // Skier object
+        const skier = {
+            x: canvas.width / 2 - skierSize / 2,
+            y: canvas.height - skierSize - 20,
+            width: skierSize,
+            height: skierSize,
+            color: "blue",
+            moveLeft: false,
+            moveRight: false
+        };
+
+        // Chaser object (red hollow circle)
+        const chaser = {
+            x: Math.random() * canvas.width,
+            y: -chaserRadius,
+            radius: chaserRadius,
+            color: "red"
+        };
+
+        // Obstacle generation
+        function createObstacle() {
+            const type = Math.random() > 0.5 ? "tree" : "rock";
+            const obstacle = {
+                x: Math.random() * (canvas.width - obstacleSize),
+                y: -obstacleSize,
+                width: obstacleSize,
+                height: obstacleSize,
+                type: type
+            };
+            obstacles.push(obstacle);
+        }
+
+        // Draw skier
+        function drawSkier() {
+            ctx.fillStyle = skier.color;
+            ctx.fillRect(skier.x, skier.y, skier.width, skier.height);
+        }
+
+        // Draw obstacles (trees and rocks)
+        function drawObstacles() {
+            obstacles.forEach(obstacle => {
+                if (obstacle.type === "tree") {
+                    ctx.fillStyle = "green";
+                    ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+                } else {
+                    ctx.fillStyle = "gray";
+                    ctx.beginPath();
+                    ctx.arc(obstacle.x + obstacle.width / 2, obstacle.y + obstacle.height / 2, obstacle.width / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+        }
+
+        // Draw chaser as a red hollow circle
+        function drawChaser() {
+            ctx.beginPath();
+            ctx.arc(chaser.x, chaser.y, chaser.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = chaser.color;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.closePath();
+        }
+
+        // Move skier based on input
+        function moveSkier() {
+            if (skier.moveLeft && skier.x > 0) {
+                skier.x -= 5;
+            }
+            if (skier.moveRight && skier.x < canvas.width - skier.width) {
+                skier.x += 5;
+            }
+        }
+
+        // Move obstacles down the screen
+        function moveObstacles() {
+            obstacles.forEach(obstacle => {
+                obstacle.y += speed;
+            });
+
+            // Remove obstacles that are off the screen
+            while (obstacles.length > 0 && obstacles[0].y > canvas.height) {
+                obstacles.shift();
+            }
+        }
+
+        // Move chaser towards the skier
+        function moveChaser() {
+            if (chaser.y < skier.y) {
+                chaser.y += speed + 1;
+            }
+            if (chaser.x < skier.x) {
+                chaser.x += speed;
+            } else if (chaser.x > skier.x) {
+                chaser.x -= speed;
+            }
+        }
+
+        // Check for collisions
+        function checkCollisions() {
+            obstacles.forEach(obstacle => {
+                if (skier.x < obstacle.x + obstacle.width &&
+                    skier.x + skier.width > obstacle.x &&
+                    skier.y < obstacle.y + obstacle.height &&
+                    skier.y + skier.height > obstacle.y) {
+                    gameOver = true;
+                }
+            });
+
+            // Check for collision with chaser
+            if (chaserActive &&
+                Math.hypot(skier.x - chaser.x, skier.y - chaser.y) < skier.width + chaser.radius) {
+                gameOver = true;
+            }
+        }
+
+        // Update score and difficulty
+        function updateScoreAndDifficulty() {
+            score++;
+            distanceTraveled += speed;
+
+            // Increase speed every 100 points
+            if (score % 100 === 0) {
+                speed += 0.5;
+            }
+
+            // Activate the chaser after a certain distance
+            if (distanceTraveled > 500 && !chaserActive) {
+                chaserActive = true;
+            }
+
+            document.getElementById("scoreboard").innerText = `Score: ${score}`;
+        }
+
+        // Game loop
+        function updateGame() {
+            if (gameOver) {
+                alert("Game Over! Your score: " + score);
+                document.location.reload();
+                return;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            moveSkier();
+            drawSkier();
+
+            moveObstacles();
+            drawObstacles();
+
+            if (chaserActive) {
+                moveChaser();
+                drawChaser();
+            }
+
+            checkCollisions();
+            updateScoreAndDifficulty();
+
+            requestAnimationFrame(updateGame);
+        }
+
+        // Keydown event
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft") skier.moveLeft = true;
+            if (e.key === "ArrowRight") skier.moveRight = true;
+        });
+
+        // Keyup event
+        window.addEventListener("keyup", (e) => {
+            if (e.key === "ArrowLeft") skier.moveLeft = false;
+            if (e.key === "ArrowRight") skier.moveRight = false;
+        });
+
+        // Touch controls for mobile
+        canvas.addEventListener("touchstart", (e) => {
+            const touchX = e.touches[0].clientX;
+            if (touchX < canvas.width / 2) {
+                skier.moveLeft = true;
+            } else {
+                skier.moveRight = true;
+            }
+        });
+
+        canvas.addEventListener("touchend", () => {
+            skier.moveLeft = false;
+            skier.moveRight = false;
+        });
+
+        // Start the game
+        setInterval(createObstacle, 1000); // Generate a new obstacle every second
+        updateGame();
+    </script>
+</body>
+</html>
